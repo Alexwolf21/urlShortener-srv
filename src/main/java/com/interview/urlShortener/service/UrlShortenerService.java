@@ -8,6 +8,7 @@ import com.interview.urlShortener.exception.InvalidUrlException;
 import com.interview.urlShortener.exception.UrlNotFoundException;
 import com.interview.urlShortener.repository.UrlMappingRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,17 +22,17 @@ import com.interview.urlShortener.service.encoder.FeistelObfuscator;
 public class UrlShortenerService {
 
     private final UrlMappingRepository urlMappingRepository;
-    private final SequenceService sequenceService;
+    private final CounterService counterService;
     private final String baseUrl;
 
     private static final Pattern ALIAS_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{3,30}$");
 
     public UrlShortenerService(
             UrlMappingRepository urlMappingRepository,
-            SequenceService sequenceService,
+            CounterService counterService,
             @Value("${app.base-url}") String baseUrl) {
         this.urlMappingRepository = urlMappingRepository;
-        this.sequenceService = sequenceService;
+        this.counterService = counterService;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
     }
 
@@ -67,6 +68,7 @@ public class UrlShortenerService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "urls", key = "#shortCode")
     public String getOriginalUrl(String shortCode) {
         UrlMapping mapping = urlMappingRepository.findByShortCode(shortCode)
                 .orElseThrow(() -> new UrlNotFoundException("Short URL code '" + shortCode + "' not found."));
@@ -111,7 +113,7 @@ public class UrlShortenerService {
     }
 
     private String generateCollisionFreeShortCode() {
-        long seqId = sequenceService.getNextId();
+        long seqId = counterService.getNextId();
         long obfuscatedId = FeistelObfuscator.obfuscate(seqId);
         return Base62Encoder.encode(obfuscatedId);
     }
