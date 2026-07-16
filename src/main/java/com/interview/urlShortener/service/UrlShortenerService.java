@@ -13,21 +13,25 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
 import java.time.LocalDateTime;
-import java.util.UUID;
 import java.util.regex.Pattern;
+import com.interview.urlShortener.service.encoder.Base62Encoder;
+import com.interview.urlShortener.service.encoder.FeistelObfuscator;
 
 @Service
 public class UrlShortenerService {
 
     private final UrlMappingRepository urlMappingRepository;
+    private final SequenceService sequenceService;
     private final String baseUrl;
 
     private static final Pattern ALIAS_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{3,30}$");
 
     public UrlShortenerService(
             UrlMappingRepository urlMappingRepository,
+            SequenceService sequenceService,
             @Value("${app.base-url}") String baseUrl) {
         this.urlMappingRepository = urlMappingRepository;
+        this.sequenceService = sequenceService;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
     }
 
@@ -47,9 +51,8 @@ public class UrlShortenerService {
             }
             shortCode = alias;
         } else {
-            // PR-2 temporary generator: random truncated UUID
-            // We will transition to the collision-free counter sequence generator in PR-3
-            shortCode = generateTempShortCode();
+            // Collision-free counter sequence generator using Feistel Obfuscation
+            shortCode = generateCollisionFreeShortCode();
         }
 
         UrlMapping mapping = new UrlMapping(
@@ -107,13 +110,10 @@ public class UrlShortenerService {
         }
     }
 
-    private String generateTempShortCode() {
-        // Truncate UUID to 8 characters. We check uniqueness just in case for this temporary PR-2 solution.
-        String code;
-        do {
-            code = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-        } while (urlMappingRepository.findByShortCode(code).isPresent());
-        return code;
+    private String generateCollisionFreeShortCode() {
+        long seqId = sequenceService.getNextId();
+        long obfuscatedId = FeistelObfuscator.obfuscate(seqId);
+        return Base62Encoder.encode(obfuscatedId);
     }
 
     private ShortenResponse mapToResponse(UrlMapping mapping) {
