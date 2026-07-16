@@ -17,26 +17,119 @@ This project is structured specifically to show clean architecture, solid design
 
 ---
 
-## Architectural Summary
+---
 
-<img width="7888" height="3471" alt="urlShortener" src="https://github.com/user-attachments/assets/2f77ecfe-8ad5-4b4d-a079-c8455333870e" />
+## 1. System Requirements
 
-### 1. Short Code Generation
-Instead of using hash functions (e.g., MD5 or SHA-256) which suffer from collisions due to the Birthday Paradox, the application uses **Bijective Base62 Mapping of Obfuscated Sequential IDs**:
-1. Retrieve a unique `ID` from a database sequence.
-2. Apply a mathematical permutation (e.g., bit-mixing or multiplicative inverse) to obfuscate the ID to prevent predictability.
-3. Encode the integer to a Base62 string using `[a-zA-Z0-9]`.
+### Functional Requirements
+* **URL Shortening**: Accepts a long destination URL and returns a unique, URL-safe short code.
+* **Custom Alias**: Optionally accepts a user-defined custom short code (e.g. `paytm-recharge`), validating alphanumeric constraints.
+* **Temporary Redirection**: Resolves a short code and redirects (`HTTP 302 Found`) visitors to the original destination URL.
+* **Link Click Analytics**: Captures client metrics (IP address, user-agent, referrers, and click timestamp) on redirection.
+* **Expiration**: Allows setting optional expiration datetimes for short links.
+* **URL Safety Check**: Validates scheme protocols (accepting only `http` and `https`) and rejects self-referential loops pointing back to the service base URL.
 
-This generates short codes that look random (e.g., `a7X9p1`) but are mathematically guaranteed to be unique and collision-free.
+### Non-Functional Requirements
+* **Low Latency Redirection**: Read paths must redirect visitors under sub-millisecond response times.
+* **High Write Throughput**: The system must scale write operations linearly under massive concurrent shortening volumes.
+* **Collision-Free Code Generation**: System-generated short codes must be mathematically guaranteed unique under concurrent multi-node writes.
+* **Analytical Accuracy**: Redirections must prevent browser caching to capture 100% of redirection metrics.
+* **Security & Rate Limiting**: Write endpoints must be protected against API abuse and DDoS attacks.
 
-### 2. High-Throughput Write Path (Shortening)
-To shorten a URL, the system performs a pure append insert:
-- No duplicate checks on the long URL are run, preventing read latency.
-- No lookup checks on the generated short code are required since uniqueness is guaranteed.
+---
 
-### 3. High-Performance Read Path (Redirection)
-- Redirections (`GET /{code}`) are designed to be read-through cached.
-- Redis acts as the fast-lookup layer. If a key is present in Redis, the redirect is handled in sub-millisecond response times. If not, the mapping is fetched from PostgreSQL/H2 and written to cache.
+## 2. Capacity Estimation
+
+### A. Traffic Estimates
+* **Assumption**: 100 million new URLs shortened per month.
+* **Read-to-Write Ratio**: 10:1 (1 billion redirection click-throughs per month).
+* **Write Requests Per Second (QPS)**:
+  $$\text{Write QPS} = \frac{100,000,000}{30 \times 24 \times 3600} \approx 38.5\text{ requests/sec}$$
+* **Read Requests Per Second (QPS)**:
+  $$\text{Read QPS} = \frac{1,000,000,000}{30 \times 24 \times 3600} \approx 385\text{ requests/sec}$$
+  * *Peak Read QPS* (during spike periods/marketing campaigns): $10 \times \text{Average Read QPS} \approx 3,850\text{ requests/sec}$.
+
+### B. Storage Estimation
+* **Average Record size**: 
+  * `short_code` (varchar): 10 bytes
+  * `long_url` (varchar): 100 bytes
+  * `created_at` (timestamp): 8 bytes
+  * `expires_at` (timestamp): 8 bytes
+  * **Total per mapping**: $\approx 126\text{ bytes}$
+* **Monthly Storage Requirement**:
+  $$100,000,000 \times 126\text{ bytes} \approx 12.6\text{ GB per month}$$
+* **5-Year Storage Size**:
+  $$12.6\text{ GB} \times 12 \text{ months} \times 5\text{ years} \approx 756\text{ GB}$$
+
+### C. Caching & Memory Estimation
+We assume the Pareto Principle (80% of click traffic hits 20% of hot redirection mappings).
+* **Daily Redirection Requests**:
+  $$\frac{1,000,000,000}{30} \approx 33.3\text{ million click requests per day}$$
+* **Redirections to Cache (20% of daily traffic)**:
+  $$33.3\text{ million} \times 0.20 \approx 6.66\text{ million mappings}$$
+* **RAM Requirement for Caching Mappings**:
+  $$6.66\text{ million} \times 126\text{ bytes} \approx 839.16\text{ MB}$$
+  * An extremely compact profile easily accommodated in standard Redis setups.
+
+---
+
+## 3. Design Decisions & Constraints
+
+### A. Pure-Append Write Strategy
+Instead of checking if a target `long_url` is already shortened prior to writing (`SELECT short_code FROM url_mappings WHERE long_url = ?`), the system allocates a fresh short code and appends the mapping.
+* **Benefits**: 
+  1. Turning the write path into a single `INSERT` statement, eliminating lookup disk latency.
+  2. Supporting analytics segment tracking—marketing teams need independent short URLs pointing to the same destination (e.g. newsletter campaign vs SMS campaign) to calculate channel metrics.
+
+### B. Bijective Counter Obfuscation
+We reject random generation loops (e.g., hash truncation or random string retries) due to write performance degradation under collisions. Instead, we use a sequential sequence counter.
+To prevent guessability and enumeration security leaks, the counter is obfuscated using a **62-bit bijective Feistel Cipher** before encoding. Since the cipher is bijective, the mapped output is guaranteed 100% collision-free without database index pre-checks.
+
+### C. HTTP 302 Temporary Redirects
+We return `302 Found` rather than `301 Moved Permanently` redirects.
+* **Rationale**: Browsers cache 301 redirects locally. Subsequent visitor clicks bypass the server completely, blinding our analytics engine. A 302 redirect ensures every click is captured at the redirection controller.
+
+---
+
+## 4. System Architecture
+
+```mermaid
+graph TD
+    Client[Client Browser] -->|POST /shorten| APIGateway[API Gateway / Load Balancer]
+    Client -->|GET /code| APIGateway
+    
+    subgraph Stateless Web Application Tier
+        APIGateway --> WriteService[Write API instances]
+        APIGateway --> ReadService[Read API / Redirect instances]
+    end
+    
+    subgraph Distributed Counter & Caching
+        WriteService -->|INCRBY 1000| RedisCounter[Redis Global Counter]
+        ReadService -->|Read-Through Cache| RedisCache[(Redis Cache Layer)]
+    end
+    
+    subgraph Database Storage Tier
+        WriteService -->|JPA Insert| Database[(PostgreSQL / H2 Database)]
+        ReadService -->|DB Fetch on Cache Miss| Database
+    end
+    
+    subgraph Asynchronous Analytics Loop
+        ReadService -->|Publish ClickEvent| SpringEventBus[Spring Event Multicaster]
+        SpringEventBus -->|Async Dispatch| ClickListener[LinkClickListener]
+        ClickListener -->|Write Log| Database
+    end
+```
+
+---
+
+## 5. Low-Level Design (LLD) Patterns
+
+* **Strategy Pattern (`CounterService`)**: Exposes a common API strategy interface. Implements `DatabaseCounterService` (standard relational database sequence) and `RedisCounterService` (atomic segment range allocator). This lets the deployment strategy scale up from single-node local runs to high-concurrency clusters.
+* **Observer / Event-Driven Pattern (`LinkClickEvent` & `LinkClickListener`)**: Decouples the controller redirection response thread from database tracking inserts.Redirections are immediately served, and click logs are queued and persisted on background worker threads.
+* **Token Bucket Pattern (`TokenBucket` / Interceptor)**: A custom, thread-safe Token Bucket implementation maps client IPs to local buckets inside a thread-safe map, ensuring API protection without adding massive external library loads.
+- **Data Transfer Object (DTO) Record Pattern**: Leverages Java 21 `record` classes to represent immutable HTTP payloads (`ShortenRequest`, `ShortenResponse`), ensuring clean API serialization contracts isolated from DB schema concerns.
+
+---
 
 ---
 

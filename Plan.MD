@@ -10,7 +10,6 @@ This log tracks our incremental design decisions, roadmap phases, and PR status 
 | :--- | :--- | :---: | :--- |
 | **PR-1** | **Documentation & Repository Blueprint** | **Completed** | Establish `Gravity.MD`, `README.md`, `Plan.MD`. Define architecture blueprints and package organization. |
 | **PR-2** | **Core API & Persistence (Walking Skeleton)** | **Completed** | Implement basic shortening REST APIs, validation, JPA entities, and database storage (H2). Implement custom alias validation and handle duplicate URLs via a pure append method. |
-
 | **PR-3** | **Collision-Free Sequence-Based Generator** | **Completed** | Implement the Base62 encoder/decoder, mathematical permutation layer (obfuscation), and sequence allocator. Verify uniqueness through concurrent tests. |
 | **PR-4** | **Caching Layer & Production Configurations** | **Completed** | Add Redis integration for sub-millisecond redirection read speeds. Set up Spring profile-specific configs (local H2 vs prod PostgreSQL). Add OpenAPI specifications. |
 | **PR-5** | **Link Analytics, Rate Limiting & Write-Up** | **Completed** | Log click metrics asynchronously to keep redirect times fast. Implement rate limiting on writes (`POST /shorten`). Complete the take-home assessment write-up. |
