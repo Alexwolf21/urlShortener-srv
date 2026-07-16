@@ -51,7 +51,7 @@ class UrlShortenerControllerTests {
 
         // 2. Redirect back
         mockMvc.perform(get("/" + shortCode))
-                .andExpect(status().isMovedPermanently())
+                .andExpect(status().isFound())
                 .andExpect(header().string("Location", "https://www.google.com"));
     }
 

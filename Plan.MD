@@ -12,8 +12,8 @@ This log tracks our incremental design decisions, roadmap phases, and PR status 
 | **PR-2** | **Core API & Persistence (Walking Skeleton)** | **Completed** | Implement basic shortening REST APIs, validation, JPA entities, and database storage (H2). Implement custom alias validation and handle duplicate URLs via a pure append method. |
 
 | **PR-3** | **Collision-Free Sequence-Based Generator** | **Completed** | Implement the Base62 encoder/decoder, mathematical permutation layer (obfuscation), and sequence allocator. Verify uniqueness through concurrent tests. |
-| **PR-4** | **Caching Layer & Production Configurations** | **In Progress** | Add Redis integration for sub-millisecond redirection read speeds. Set up Spring profile-specific configs (local H2 vs prod PostgreSQL). Add OpenAPI specifications. |
-| **PR-5** | **Link Analytics, Rate Limiting & Write-Up** | Planned | Log click metrics asynchronously to keep redirect times fast. Implement rate limiting on writes (`POST /shorten`). Complete the take-home assessment write-up. |
+| **PR-4** | **Caching Layer & Production Configurations** | **Completed** | Add Redis integration for sub-millisecond redirection read speeds. Set up Spring profile-specific configs (local H2 vs prod PostgreSQL). Add OpenAPI specifications. |
+| **PR-5** | **Link Analytics, Rate Limiting & Write-Up** | **In Progress** | Log click metrics asynchronously to keep redirect times fast. Implement rate limiting on writes (`POST /shorten`). Complete the take-home assessment write-up. |
 
 ---
 
@@ -68,5 +68,19 @@ This log tracks our incremental design decisions, roadmap phases, and PR status 
 - [x] Integrate sequence generator into `UrlShortenerService`.
 - [x] Write unit tests for `Base62Encoder` and `FeistelObfuscator` (`EncoderTests.java`).
 - [x] Write concurrent multi-threaded integration tests (`ConcurrencyTests.java`).
+
+---
+
+## PR-4 Implementation Checklists
+- [x] Add Redis and Cache dependencies to `pom.xml`.
+- [x] Implement the `CounterService` strategy interface.
+- [x] Create `DatabaseCounterService` for H2 sequence counter (active on `!redis` profile).
+- [x] Create `RedisCounterService` carrying the Segment/Range Allocation pattern (active on `redis` profile).
+- [x] Configure `@EnableCaching` and define `RedisConfig` configuration beans.
+- [x] Modify redirection status in `RedirectController` to `302 Found` for analytics tracking.
+- [x] Refactor `UrlShortenerService` to inject `CounterService` and add `@Cacheable` annotation on original URL fetches.
+- [x] Write `RedisCounterServiceTests` verifying local ranges and incrementing rules.
+- [x] Write `CachingTests` verifying read-through cache interception.
+
 
 
