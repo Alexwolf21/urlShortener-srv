@@ -7,6 +7,7 @@ import com.interview.urlShortener.exception.AliasConflictException;
 import com.interview.urlShortener.exception.InvalidUrlException;
 import com.interview.urlShortener.exception.UrlNotFoundException;
 import com.interview.urlShortener.repository.UrlMappingRepository;
+import com.interview.urlShortener.service.SequenceService;
 import com.interview.urlShortener.service.UrlShortenerService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,18 +29,21 @@ class UrlShortenerServiceTests {
     @Mock
     private UrlMappingRepository urlMappingRepository;
 
+    @Mock
+    private SequenceService sequenceService;
+
     private UrlShortenerService urlShortenerService;
 
     @BeforeEach
     void setUp() {
-        urlShortenerService = new UrlShortenerService(urlMappingRepository, "http://localhost:8080");
+        urlShortenerService = new UrlShortenerService(urlMappingRepository, sequenceService, "http://localhost:8080");
     }
 
     @Test
     void shortenUrl_withValidUrl_shouldSucceed() {
         // Arrange
         ShortenRequest request = new ShortenRequest("https://www.google.com", null);
-        when(urlMappingRepository.findByShortCode(any())).thenReturn(Optional.empty());
+        when(sequenceService.getNextId()).thenReturn(100000L);
         when(urlMappingRepository.save(any(UrlMapping.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
@@ -48,7 +52,7 @@ class UrlShortenerServiceTests {
         // Assert
         assertThat(response).isNotNull();
         assertThat(response.longUrl()).isEqualTo("https://www.google.com");
-        assertThat(response.shortCode()).hasSize(8);
+        assertThat(response.shortCode()).isNotEmpty();
         assertThat(response.shortUrl()).isEqualTo("http://localhost:8080/" + response.shortCode());
         verify(urlMappingRepository, times(1)).save(any(UrlMapping.class));
     }

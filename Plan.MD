@@ -8,10 +8,11 @@ This log tracks our incremental design decisions, roadmap phases, and PR status 
 
 | PR #  | Scope & Focus | Status | Details / Key Decisions |
 | :--- | :--- | :---: | :--- |
-| **PR-1** | **Documentation & Repository Blueprint** | **In Progress** | Establish `Gravity.MD`, `README.md`, `Plan.MD`. Define architecture blueprints and package organization. |
-| **PR-2** | **Core API & Persistence (Walking Skeleton)** | Planned | Implement basic shortening REST APIs, validation, JPA entities, and database storage (H2). Implement custom alias validation and handle duplicate URLs via a pure append method. |
-| **PR-3** | **Collision-Free Sequence-Based Generator** | Planned | Implement the Base62 encoder/decoder, mathematical permutation layer (obfuscation), and sequence allocator. Verify uniqueness through concurrent tests. |
-| **PR-4** | **Caching Layer & Production Configurations** | Planned | Add Redis integration for sub-millisecond redirection read speeds. Set up Spring profile-specific configs (local H2 vs prod PostgreSQL). Add OpenAPI specifications. |
+| **PR-1** | **Documentation & Repository Blueprint** | **Completed** | Establish `Gravity.MD`, `README.md`, `Plan.MD`. Define architecture blueprints and package organization. |
+| **PR-2** | **Core API & Persistence (Walking Skeleton)** | **Completed** | Implement basic shortening REST APIs, validation, JPA entities, and database storage (H2). Implement custom alias validation and handle duplicate URLs via a pure append method. |
+
+| **PR-3** | **Collision-Free Sequence-Based Generator** | **Completed** | Implement the Base62 encoder/decoder, mathematical permutation layer (obfuscation), and sequence allocator. Verify uniqueness through concurrent tests. |
+| **PR-4** | **Caching Layer & Production Configurations** | **In Progress** | Add Redis integration for sub-millisecond redirection read speeds. Set up Spring profile-specific configs (local H2 vs prod PostgreSQL). Add OpenAPI specifications. |
 | **PR-5** | **Link Analytics, Rate Limiting & Write-Up** | Planned | Log click metrics asynchronously to keep redirect times fast. Implement rate limiting on writes (`POST /shorten`). Complete the take-home assessment write-up. |
 
 ---
@@ -45,4 +46,27 @@ This log tracks our incremental design decisions, roadmap phases, and PR status 
 - [x] Create `README.md` (public guide & quickstart instructions).
 - [x] Create `Plan.MD` (tracking & architecture log).
 - [x] Run test build verifying baseline Maven skeleton.
+
+---
+
+## PR-2 Implementation Checklists
+- [x] Configure database properties in `application.properties`.
+- [x] Implement `UrlMapping` JPA entity with indexes.
+- [x] Create `ShortenRequest` and `ShortenResponse` DTO records.
+- [x] Design custom exceptions and configure `GlobalExceptionHandler`.
+- [x] Implement core logic in `UrlShortenerService` with URL safety checks and duplicate append policy.
+- [x] Implement REST controllers `UrlShortenerController` and `RedirectController`.
+- [x] Write Unit & Integration tests for Core API and verify build success.
+
+---
+
+## PR-3 Implementation Checklists
+- [x] Create `schema.sql` to initialize `url_sequence`.
+- [x] Implement `Base62Encoder` utility class.
+- [x] Implement `FeistelObfuscator` 62-bit bijective obfuscation logic.
+- [x] Implement `SequenceService` to fetch the next sequence value from H2.
+- [x] Integrate sequence generator into `UrlShortenerService`.
+- [x] Write unit tests for `Base62Encoder` and `FeistelObfuscator` (`EncoderTests.java`).
+- [x] Write concurrent multi-threaded integration tests (`ConcurrencyTests.java`).
+
 
