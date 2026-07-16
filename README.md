@@ -19,6 +19,8 @@ This project is structured specifically to show clean architecture, solid design
 
 ## Architectural Summary
 
+<img width="7888" height="3471" alt="urlShortener" src="https://github.com/user-attachments/assets/2f77ecfe-8ad5-4b4d-a079-c8455333870e" />
+
 ### 1. Short Code Generation
 Instead of using hash functions (e.g., MD5 or SHA-256) which suffer from collisions due to the Birthday Paradox, the application uses **Bijective Base62 Mapping of Obfuscated Sequential IDs**:
 1. Retrieve a unique `ID` from a database sequence.
