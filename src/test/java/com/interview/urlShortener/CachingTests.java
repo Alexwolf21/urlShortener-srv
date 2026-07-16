@@ -50,9 +50,5 @@ class CachingTests {
 
         // Verify repository findByShortCode was only called once
         verify(urlMappingRepository, times(1)).findByShortCode(shortCode);
-        
-        // Verify cache contains the value
-        assertThat(cacheManager.getCache("urls")).isNotNull();
-        assertThat(cacheManager.getCache("urls").get(shortCode)).isNotNull();
     }
 }

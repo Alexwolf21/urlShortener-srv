@@ -13,7 +13,7 @@ This log tracks our incremental design decisions, roadmap phases, and PR status 
 
 | **PR-3** | **Collision-Free Sequence-Based Generator** | **Completed** | Implement the Base62 encoder/decoder, mathematical permutation layer (obfuscation), and sequence allocator. Verify uniqueness through concurrent tests. |
 | **PR-4** | **Caching Layer & Production Configurations** | **Completed** | Add Redis integration for sub-millisecond redirection read speeds. Set up Spring profile-specific configs (local H2 vs prod PostgreSQL). Add OpenAPI specifications. |
-| **PR-5** | **Link Analytics, Rate Limiting & Write-Up** | **In Progress** | Log click metrics asynchronously to keep redirect times fast. Implement rate limiting on writes (`POST /shorten`). Complete the take-home assessment write-up. |
+| **PR-5** | **Link Analytics, Rate Limiting & Write-Up** | **Completed** | Log click metrics asynchronously to keep redirect times fast. Implement rate limiting on writes (`POST /shorten`). Complete the take-home assessment write-up. |
 
 ---
 
@@ -81,6 +81,23 @@ This log tracks our incremental design decisions, roadmap phases, and PR status 
 - [x] Refactor `UrlShortenerService` to inject `CounterService` and add `@Cacheable` annotation on original URL fetches.
 - [x] Write `RedisCounterServiceTests` verifying local ranges and incrementing rules.
 - [x] Write `CachingTests` verifying read-through cache interception.
+
+---
+
+## PR-5 Implementation Checklists
+- [x] Modify `schema.sql` to define `analytics_logs` table.
+- [x] Clean up deprecated files in the workspace.
+- [x] Create `AnalyticsLog` JPA entity.
+- [x] Create `AnalyticsLogRepository` interface.
+- [x] Create `LinkClickEvent` record.
+- [x] Create `LinkClickListener` carrying `@Async` and `@EventListener`.
+- [x] Enable asynchronous execution using `@EnableAsync` on the main application class.
+- [x] Update `RedirectController` to publish click events on redirection.
+- [x] Create `TokenBucket` class for client rate limits.
+- [x] Create `RateLimitingInterceptor` and register it in `WebMvcConfig`.
+- [x] Create custom `RateLimitExceededException` mapped in `GlobalExceptionHandler`.
+- [x] Write integration and unit tests for click tracking (`AnalyticsTests.java`) and rate limiting (`RateLimitingTests.java`).
+- [x] Create the required `Writeup.md` document in the workspace.
 
 
 
