@@ -122,6 +122,9 @@ graph TD
 
 ---
 
+<img width="7888" height="3471" alt="urlShortener" src="https://github.com/user-attachments/assets/d0b17ecf-a5d6-4ea5-a1ca-9e344ea000e2" />
+
+
 ## 5. Low-Level Design (LLD) Patterns
 
 * **Strategy Pattern (`CounterService`)**: Exposes a common API strategy interface. Implements `DatabaseCounterService` (standard relational database sequence) and `RedisCounterService` (atomic segment range allocator). This lets the deployment strategy scale up from single-node local runs to high-concurrency clusters.
