@@ -17,6 +17,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         // Register client rate limiter to intercept the shorten API path
         registry.addInterceptor(rateLimitingInterceptor)
-                .addPathPatterns("/api/v1/shorten");
+                .addPathPatterns("/api/v1/shorten", "/shorten");
     }
 }
