@@ -200,5 +200,33 @@ Create a short code for a destination URL.
 Redirect to the original long URL.
 
 - **URL**: `GET /{code}`
-- **Response**: `301 Moved Permanently` (Location Header pointing to destination URL).
+- **Response**: `302 Found` (Location Header pointing to destination URL).
 - **Error Response (404 Not Found)**: If the short code does not exist.
+
+---
+
+### 3. Administrative Retention Cleanup
+Deletes short URL mappings and their associated logs if they have been inactive for more than a specified retention window (default: 30 days).
+
+- **URL**: `DELETE /api/v1/admin/cleanup`
+- **Query Parameters**:
+  - `days` (Optional integer, default: `30`): Retention cutoff duration in days.
+- **Response (200 OK)**:
+  ```json
+  {
+    "message": "Database retention cleanup executed successfully.",
+    "deletedCount": 42,
+    "retentionDays": 30
+  }
+  ```
+
+---
+
+## 6. Production Automated Retention (Cron Job Setup)
+
+To automatically clean up expired or inactive short codes in a cloud-deployed environment:
+1. **Spring `@Scheduled` Cron**: We can annotate a service method with `@Scheduled(cron = "0 0 2 * * ?")` (running daily at 2:00 AM) that calls `urlShortenerService.cleanupInactiveUrls(30)`.
+2. **Cloud Cron Scheduler**: Expose this `/api/v1/admin/cleanup` endpoint (secured via API keys / Basic Auth) and trigger it daily using a serverless cron trigger, such as:
+   * **AWS EventBridge + Lambda**: Triggers a function that sends a secure DELETE request to `/api/v1/admin/cleanup?days=30`.
+   * **Kubernetes CronJob**: Deploys a lightweight curler pod to hit the admin cleanup route periodically.
+

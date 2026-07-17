@@ -18,11 +18,16 @@ import java.util.regex.Pattern;
 import com.interview.urlShortener.service.encoder.Base62Encoder;
 import com.interview.urlShortener.service.encoder.FeistelObfuscator;
 
+import jakarta.persistence.EntityManager;
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
 public class UrlShortenerService {
 
     private final UrlMappingRepository urlMappingRepository;
     private final CounterService counterService;
+    private final EntityManager entityManager;
     private final String baseUrl;
 
     private static final Pattern ALIAS_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{3,30}$");
@@ -30,9 +35,11 @@ public class UrlShortenerService {
     public UrlShortenerService(
             UrlMappingRepository urlMappingRepository,
             CounterService counterService,
+            EntityManager entityManager,
             @Value("${app.base-url}") String baseUrl) {
         this.urlMappingRepository = urlMappingRepository;
         this.counterService = counterService;
+        this.entityManager = entityManager;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
     }
 
@@ -126,5 +133,42 @@ public class UrlShortenerService {
             mapping.getCreatedAt(),
             mapping.getExpiresAt()
         );
+    }
+
+    @Transactional
+    public int cleanupInactiveUrls(int days) {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(days);
+
+        // 1. Get all short codes that have clicks, but all are older than the cutoff
+        List<String> clickedButOld = entityManager.createQuery(
+                "SELECT a.shortCode FROM AnalyticsLog a GROUP BY a.shortCode HAVING MAX(a.clickedAt) < :cutoff", String.class)
+                .setParameter("cutoff", cutoff)
+                .getResultList();
+
+        // 2. Get all short codes that were created before the cutoff and have NEVER been clicked
+        List<String> neverClickedAndOld = entityManager.createQuery(
+                "SELECT m.shortCode FROM UrlMapping m WHERE m.createdAt < :cutoff AND m.shortCode NOT IN (SELECT DISTINCT a.shortCode FROM AnalyticsLog a)", String.class)
+                .setParameter("cutoff", cutoff)
+                .getResultList();
+
+        List<String> toDelete = new ArrayList<>();
+        toDelete.addAll(clickedButOld);
+        toDelete.addAll(neverClickedAndOld);
+
+        if (toDelete.isEmpty()) {
+            return 0;
+        }
+
+        // Delete from child table (AnalyticsLog) first to prevent FK constraint issues
+        entityManager.createQuery("DELETE FROM AnalyticsLog a WHERE a.shortCode IN :codes")
+                .setParameter("codes", toDelete)
+                .executeUpdate();
+
+        // Delete from parent table (UrlMapping)
+        int deletedCount = entityManager.createQuery("DELETE FROM UrlMapping m WHERE m.shortCode IN :codes")
+                .setParameter("codes", toDelete)
+                .executeUpdate();
+
+        return deletedCount;
     }
 }

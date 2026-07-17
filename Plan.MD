@@ -96,6 +96,8 @@ This log tracks our incremental design decisions, roadmap phases, and PR status 
 - [x] Create `RateLimitingInterceptor` and register it in `WebMvcConfig`.
 - [x] Create custom `RateLimitExceededException` mapped in `GlobalExceptionHandler`.
 - [x] Write integration and unit tests for click tracking (`AnalyticsTests.java`) and rate limiting (`RateLimitingTests.java`).
+- [x] Create administrative database retention cleanup API (`DELETE /api/v1/admin/cleanup`).
+- [x] Add automated integration tests for administrative cleanup (`AdminTests.java`).
 - [x] Create the required `Writeup.md` document in the workspace.
 
 
